@@ -88,6 +88,22 @@ request group from the flavor.
 Based on the `ironic driver traits spec`_ implemented we need to send image
 traits to ironic similar to how we are sending `extra_specs` traits to ironic.
 
+**Dealing with rebuild**
+
+In case of rebuild with new image(host and flavor staying the same), we need to
+make sure the image traits(if updated) are taken into account. Ideally the
+scheduler would request new candidates from placement, but this is problematic
+in-case the compute is close to full as the current host will be excluded. This
+is described in the issue `rebuild shouldn't check with placement`_.
+
+To solve the issue, the scheduler can request traits of current host using the
+existing `GET /resource_providers/{hostUUID}/traits` API and try to match the
+traits returned for the current host against the traits specified in the image.
+
+If the traits do not match, `NoValidHost` exception will be raised before the
+filters are run. If the traits match, then the request will continue to be
+processed as it does currently(passing through the various filters etc)
+
 Alternatives
 ------------
 
@@ -119,6 +135,16 @@ filter to filter select hosts within specific host aggregates. Host aggregate
 metadata is not standardized unlike the traits and also requires host
 aggregates to be pre-created with duplicated standard traits which is not
 ideal.
+
+**Dealing with rebuild**
+
+see `rebuild shouldn't check with placement`_
+
+We can make an allocation request to placement using
+`GET /allocation_candidates` API without resources and only traits
+and make sure the host list returned contains the host we are currently doing a
+rebuild of. This would require a API change as currently resources are
+required in the allocation request API.
 
 Data model impact
 -----------------
@@ -212,6 +238,7 @@ http://specs.openstack.org/openstack/nova-specs/specs/queens/approved/request-tr
 
 .. _ironic driver traits spec: https://review.openstack.org/#/c/508116/
 .. _granular request groups: http://specs.openstack.org/openstack/nova-specs/specs/rocky/approved/granular-resource-requests.html#numbered-request-groups
+.. _rebuild shouldn't check with placement: https://bugs.launchpad.net/nova/+bug/1750623
 
 History
 =======
